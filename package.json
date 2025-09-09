@@ -1,27 +1,49 @@
 {
   "name": "dumbelldoor-web",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "AI-powered code assistant for analyzing and understanding codebases",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "build:docker": "ESLINT_NO_DEV_ERRORS=true next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "docker:build": "docker build -t dumbelldoor-web .",
+    "docker:run": "docker-compose up -d",
+    "docker:stop": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
+    "date-fns": "^4.1.0",
+    "highlight.js": "^11.11.1",
+    "lucide-react": "^0.542.0",
+    "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.2"
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
-    "@eslint/eslintrc": "^3"
-  }
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "keywords": [
+    "AI",
+    "code-assistant",
+    "codebase-analysis",
+    "next.js",
+    "react",
+    "typescript"
+  ],
+  "author": "DumbledoorWeb Team",
+  "license": "MIT"
 }
