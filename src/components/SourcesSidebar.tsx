@@ -3,6 +3,7 @@
 import { ExternalLink, FileText, Code, FileCode, Settings, TestTube, Eye, GripVertical } from 'lucide-react';
 import { Source } from '@/types/chat';
 import { useState, useRef, useEffect } from 'react';
+import { AppConfig } from '@/config/app.config';
 
 interface SourcesSidebarProps {
   sources: Source[];
@@ -57,7 +58,7 @@ export default function SourcesSidebar({ sources, width, onWidthChange, minWidth
   return (
     <div 
       ref={sidebarRef}
-      className="h-full bg-gray-50 flex relative"
+      className="h-full bg-gray-50 flex relative min-w-0"
       style={{ width: `${width}px` }}
     >
       {/* Draggable Resize Handle */}
@@ -84,13 +85,13 @@ export default function SourcesSidebar({ sources, width, onWidthChange, minWidth
       </div>
 
       {/* Sidebar Content */}
-      <div className="flex-1 flex flex-col border-l border-gray-200 ml-2">
+      <div className="flex-1 flex flex-col border-l border-gray-200 ml-2 min-w-0 overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">Sources</h3>
-              <p className="text-sm text-gray-500 mt-1">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 truncate">Sources</h3>
+              <p className="text-sm text-gray-500 mt-1 truncate">
                 {sources.length} source{sources.length !== 1 ? 's' : ''} found
               </p>
             </div>
@@ -98,7 +99,7 @@ export default function SourcesSidebar({ sources, width, onWidthChange, minWidth
         </div>
 
         {/* Sources List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0">
           {sources.length === 0 ? (
             <div className="text-center py-12">
               <FileText size={48} className="mx-auto mb-4 text-gray-400" />
@@ -226,29 +227,28 @@ function SourceCard({ source, width }: { source: Source; width: number }) {
     }
   };
 
-  // Determine text size based on width
-  const isNarrow = width < 250;
-  const isVeryNarrow = width < 180;
+  const isNarrow = width < AppConfig.ui.sidebar.sourceCardNarrowBreakpoint;
+  const isVeryNarrow = width < AppConfig.ui.sidebar.sourceCardVeryNarrowBreakpoint;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow min-w-0 overflow-hidden">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-start space-x-2 flex-1 min-w-0">
           <div className="flex-shrink-0 mt-1">
             {getFileIcon((source as any).fileType, (source as any).isTest, (source as any).isConfig)}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className={`${isVeryNarrow ? 'text-xs' : isNarrow ? 'text-sm' : 'text-sm'} font-medium text-gray-900 line-clamp-2 break-all`}>
-              {isVeryNarrow && source.title.length > 20 
-                ? source.title.substring(0, 20) + '...'
-                : isNarrow && source.title.length > 30
-                ? source.title.substring(0, 30) + '...'
+            <h4 className={`${isVeryNarrow ? 'text-xs' : isNarrow ? 'text-sm' : 'text-sm'} font-medium text-gray-900 break-words truncate`} title={source.title}>
+              {isVeryNarrow && source.title.length > AppConfig.ui.sidebar.sourceCardNarrowMaxTitleLength 
+                ? source.title.substring(0, AppConfig.ui.sidebar.sourceCardNarrowMaxTitleLength) + '...'
+                : isNarrow && source.title.length > AppConfig.ui.sidebar.sourceCardMaxTitleLength
+                ? source.title.substring(0, AppConfig.ui.sidebar.sourceCardMaxTitleLength) + '...'
                 : source.title}
             </h4>
             <div className={`flex items-center space-x-2 mt-1 ${isVeryNarrow ? 'flex-col space-x-0 space-y-1' : ''}`}>
               {!isVeryNarrow && getLanguageBadge((source as any).language)}
               {(source as any).relevanceScore && (
-                <span className={`${isVeryNarrow ? 'text-xs' : 'text-xs'} text-gray-500`}>
+                <span className={`${isVeryNarrow ? 'text-xs' : 'text-xs'} text-gray-500 flex-shrink-0`}>
                   {((source as any).relevanceScore * 100).toFixed(1)}% match
                 </span>
               )}
@@ -269,16 +269,16 @@ function SourceCard({ source, width }: { source: Source; width: number }) {
       
       {source.description && !isVeryNarrow && (
         <div className="mb-3">
-          <pre className={`${isNarrow ? 'text-xs' : 'text-xs'} text-gray-600 bg-gray-50 p-2 rounded border overflow-x-auto whitespace-pre-wrap font-mono`}>
-            {source.description.length > (isNarrow ? 100 : 200) 
-              ? source.description.substring(0, isNarrow ? 100 : 200) + '...' 
+          <pre className={`${isNarrow ? 'text-xs' : 'text-xs'} text-gray-600 bg-gray-50 p-2 rounded border whitespace-pre-wrap font-mono break-words overflow-hidden word-break`}>
+            {source.description.length > (isNarrow ? AppConfig.ui.sidebar.sourceCardNarrowMaxDescriptionLength : AppConfig.ui.sidebar.sourceCardMaxDescriptionLength) 
+              ? source.description.substring(0, isNarrow ? AppConfig.ui.sidebar.sourceCardNarrowMaxDescriptionLength : AppConfig.ui.sidebar.sourceCardMaxDescriptionLength) + '...' 
               : source.description}
           </pre>
         </div>
       )}
       
-      <div className={`flex items-center ${isVeryNarrow ? 'flex-col space-y-2' : 'justify-between'}`}>
-        <span className={`${isVeryNarrow ? 'text-xs' : 'text-xs'} text-gray-400 truncate ${isVeryNarrow ? 'w-full text-center' : ''}`}>
+      <div className={`flex items-center ${isVeryNarrow ? 'flex-col space-y-2' : 'justify-between'} min-w-0`}>
+        <span className={`${isVeryNarrow ? 'text-xs' : 'text-xs'} text-gray-400 ${isVeryNarrow ? 'w-full text-center' : ''} break-words overflow-hidden truncate flex-shrink`} title={source.url}>
           {source.url.startsWith('https://github.com/') 
             ? source.url.replace('https://github.com/', '').split('/blob/')[0]
             : (source.url !== '#' ? source.url : 'Local file')
@@ -286,7 +286,7 @@ function SourceCard({ source, width }: { source: Source; width: number }) {
         </span>
         <button
           onClick={() => handleSourceClick(source)}
-          className={`${isVeryNarrow ? 'text-xs' : 'text-xs'} text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors`}
+          className={`${isVeryNarrow ? 'text-xs' : 'text-xs'} text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors flex-shrink-0`}
         >
           {isVeryNarrow ? 'View' : source.url.startsWith('https://github.com/') ? 'View on GitHub' : 'View full source'}
         </button>

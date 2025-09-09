@@ -343,7 +343,7 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className={`flex h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div className={`flex h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'} overflow-hidden`}>
       {/* Left Sidebar - Chat History */}
       <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} flex-shrink-0 transition-all duration-300`}>
         <Sidebar
@@ -375,7 +375,10 @@ export default function ChatInterface() {
       </div>
 
       {/* Right Sidebar - Sources */}
-      <div style={{ width: `${rightSidebarWidth}px` }} className="flex-shrink-0">
+      <div 
+        style={{ width: `${rightSidebarWidth}px` }} 
+        className="flex-shrink-0 border-l border-gray-200"
+      >
         <SourcesSidebar 
           sources={sources} 
           width={rightSidebarWidth}

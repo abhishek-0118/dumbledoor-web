@@ -18,12 +18,18 @@ export const AppConfig = {
   // UI Configuration
   ui: {
     sidebar: {
-      leftDefaultWidth: 256, // 64rem = 256px
-      leftCollapsedWidth: 64, // 4rem = 64px
-      rightDefaultWidth: 384, // 24rem = 384px
+      leftDefaultWidth: 256,
+      leftCollapsedWidth: 64,
+      rightDefaultWidth: 384,
       rightMinWidth: 120,
       rightMaxWidthPercent: 40,
       rightMinWidthPercent: 10,
+      sourceCardMaxTitleLength: 30,
+      sourceCardMaxDescriptionLength: 200,
+      sourceCardNarrowMaxTitleLength: 20,
+      sourceCardNarrowMaxDescriptionLength: 100,
+      sourceCardNarrowBreakpoint: 250,
+      sourceCardVeryNarrowBreakpoint: 180,
     },
     
     chat: {
@@ -36,10 +42,12 @@ export const AppConfig = {
     },
 
     animation: {
-      loadingMessageInterval: 2000,
+      loadingMessageInterval: 1500,
       copiedIndicatorTimeout: 2000,
       typingDotDelay: 100,
       sidebarTransitionDuration: 300,
+      loadingAnimationDelay: 800,
+      typingIndicatorDelay: 1000,
     },
 
     colors: {
@@ -58,6 +66,9 @@ export const AppConfig = {
       'Processing your query',
       'Finding relevant code',
       'Generating insights',
+      'Reviewing code patterns',
+      'Exploring dependencies',
+      'Understanding context',
     ],
     
     welcomeMessages: {
