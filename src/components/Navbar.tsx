@@ -15,9 +15,12 @@ export default function Navbar({ onSettingsClick, isDarkMode, onToggleDarkMode }
     <nav className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b px-4 py-3 flex-shrink-0`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h1 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {AppConfig.app.name}
-          </h1>
+          <div className="flex items-center space-x-3">
+            <img src="/jarvis.png" alt="Jarvis" className="w-8 h-8" />
+            <h1 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {AppConfig.app.name}
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center space-x-4">

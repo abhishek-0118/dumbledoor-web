@@ -129,9 +129,12 @@ export default function Sidebar({
       {/* Footer */}
       {!collapsed && (
         <div className="p-4 border-t border-gray-700">
-          <p className="text-xs text-gray-400 text-center">
-            DumbledoorWeb v1.0
-          </p>
+          <div className="flex items-center justify-center space-x-2">
+            <img src="/jarvis.png" alt="Jarvis" className="w-4 h-4" />
+            <p className="text-xs text-gray-400">
+              Jarvis v1.0
+            </p>
+          </div>
         </div>
       )}
     </div>

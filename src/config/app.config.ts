@@ -1,6 +1,6 @@
 export const AppConfig = {
   app: {
-    name: 'DumbledoorWeb Chat',
+    name: 'Jarvis',
     version: '1.0.0',
     description: 'AI-powered code assistant for analyzing and understanding codebases',
   },
@@ -72,7 +72,7 @@ export const AppConfig = {
     ],
     
     welcomeMessages: {
-      title: 'Welcome to DumbledoorWeb Chat',
+      title: 'Welcome to Jarvis',
       subtitle: 'Ask questions about your codebase and get AI-powered insights',
       suggestions: [
         'How does the authentication work?',

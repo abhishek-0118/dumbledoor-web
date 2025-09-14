@@ -90,7 +90,7 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
     return (
       <div className={`flex-1 flex items-center justify-center ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
         <div className="text-center">
-          <Bot size={64} className="mx-auto mb-4 text-gray-400" />
+          <img src="/jarvis.png" alt="Jarvis" className="w-16 h-16 mx-auto mb-4 opacity-60" />
           <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-2`}>
             {AppConfig.chat.welcomeMessages.title}
           </h2>
@@ -109,28 +109,28 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
   }
 
   return (
-    <div className={`flex-1 flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-white'} h-full min-w-0`}>
-      {/* Chat Header */}
-      <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-b px-6 py-4 flex-shrink-0`}>
+    <div className={`flex-1 flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-white'} h-full min-w-0 relative`}>
+      {/* Chat Header - Hidden on mobile, shown on desktop */}
+      <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-b px-4 md:px-6 py-3 md:py-4 flex-shrink-0 hidden md:block`}>
         <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{chat.title}</h2>
         <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
           {chat.messages.length} messages • Last updated {format(chat.updatedAt, AppConfig.ui.chat.messageTimestampFormat)}
         </p>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages Area - Scrollable container */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-full mx-auto p-6 space-y-6">
+        <div className="w-full mx-auto p-3 md:p-6 space-y-4 md:space-y-6 pb-4">
           {chat.messages.length === 0 ? (
-            <div className="text-center py-12">
-              <Bot size={48} className="mx-auto mb-4 text-gray-400" />
-              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <div className="text-center py-8 md:py-12">
+              <img src="/jarvis.png" alt="Jarvis" className="w-12 h-12 mx-auto mb-4 opacity-60" />
+              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm md:text-base`}>
                 {AppConfig.chat.emptyStateMessages.title}
               </p>
               <div className={`mt-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} space-y-1`}>
                 <p>You can ask about:</p>
                 {AppConfig.chat.emptyStateMessages.suggestions.map((suggestion, index) => (
-                  <p key={index}>• {suggestion}</p>
+                  <p key={index} className="text-xs md:text-sm">• {suggestion}</p>
                 ))}
               </div>
             </div>
@@ -141,46 +141,47 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
           )}
 
           {isLoading && (
-            <div className={`flex flex-col items-center justify-center space-y-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} py-12`}>
+            <div className={`flex flex-col items-center justify-center space-y-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} py-8 md:py-12`}>
               <div className="relative">
                 {showTypingAnimation && isTyping ? (
-                  <div className={`w-16 h-16 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full flex items-center justify-center`}>
+                  <div className={`w-12 h-12 md:w-16 md:h-16 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full flex items-center justify-center`}>
                     <div className="flex space-x-1">
-                      <div className={`w-2 h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`}></div>
-                      <div className={`w-2 h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
-                      <div className={`w-2 h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
+                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`}></div>
+                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
+                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className={`w-16 h-16 border-4 ${isDarkMode ? 'border-gray-600 border-t-blue-400' : 'border-gray-200 border-t-blue-500'} rounded-full animate-spin`}></div>
-                    <div className={`absolute inset-0 w-16 h-16 border-4 ${isDarkMode ? 'border-gray-700 border-r-purple-400' : 'border-gray-100 border-r-purple-500'} rounded-full animate-spin`} style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-                    <Bot size={24} className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+                    <div className={`w-12 h-12 md:w-16 md:h-16 border-4 ${isDarkMode ? 'border-gray-600 border-t-blue-400' : 'border-gray-200 border-t-blue-500'} rounded-full animate-spin`}></div>
+                    <div className={`absolute inset-0 w-12 h-12 md:w-16 md:h-16 border-4 ${isDarkMode ? 'border-gray-700 border-r-purple-400' : 'border-gray-100 border-r-purple-500'} rounded-full animate-spin`} style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                    <img src="/jarvis.png" alt="Jarvis" className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 md:hidden" />
+                    <img src="/jarvis.png" alt="Jarvis" className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 hidden md:block" />
                   </>
                 )}
               </div>
               
-              <div className="text-center">
-                <div className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-2 transition-all duration-500`}>
+              <div className="text-center px-4">
+                <div className={`text-lg md:text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-2 transition-all duration-500`}>
                   {loadingText}
                 </div>
-                <div className={`flex items-center justify-center space-x-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <div className={`flex items-center justify-center space-x-1 text-xs md:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   <span>{showTypingAnimation && isTyping ? 'AI is typing' : 'Please wait while I process your request'}</span>
                   <div className="flex space-x-1 ml-2">
-                    <div className={`w-1.5 h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`}></div>
-                    <div className={`w-1.5 h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
-                    <div className={`w-1.5 h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
+                    <div className={`w-1 h-1 md:w-1.5 md:h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`}></div>
+                    <div className={`w-1 h-1 md:w-1.5 md:h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
+                    <div className={`w-1 h-1 md:w-1.5 md:h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
               
               {!showTypingAnimation && !isTyping && (
-                <div className="flex space-x-2">
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'} rounded-full animate-pulse`}></div>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-purple-400' : 'bg-purple-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.2s' }}></div>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.4s' }}></div>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-yellow-400' : 'bg-yellow-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.6s' }}></div>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-red-400' : 'bg-red-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.8s' }}></div>
+                <div className="flex space-x-1 md:space-x-2">
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'} rounded-full animate-pulse`}></div>
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-purple-400' : 'bg-purple-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.2s' }}></div>
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.4s' }}></div>
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-yellow-400' : 'bg-yellow-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.6s' }}></div>
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-red-400' : 'bg-red-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.8s' }}></div>
                 </div>
               )}
             </div>
@@ -190,10 +191,10 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
         </div>
       </div>
 
-      {/* Message Input - Fixed at bottom */}
-      <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-t flex-shrink-0`}>
-        <div className="max-w-full mx-auto p-4">
-          <form onSubmit={handleSubmit} className="flex items-end space-x-3">
+      {/* Message Input - Fixed at bottom with proper safe area */}
+      <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-t flex-shrink-0 sticky bottom-0 safe-area-padding-bottom`}>
+        <div className="w-full mx-auto p-3 md:p-4">
+          <form onSubmit={handleSubmit} className="flex items-end space-x-2 md:space-x-3">
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
@@ -201,7 +202,7 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about your codebase..."
-                className={`w-full p-3 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-800'} rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32`}
+                className={`w-full p-3 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-800'} rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32 text-sm md:text-base`}
                 rows={1}
                 disabled={isLoading}
               />
@@ -209,12 +210,13 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
             <button
               type="submit"
               disabled={!message.trim() || isLoading}
-              className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              className="bg-blue-600 text-white p-2.5 md:p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
-              <Send size={20} />
+              <Send size={18} className="md:hidden" />
+              <Send size={20} className="hidden md:block" />
             </button>
           </form>
-          <div className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-center`}>
+          <div className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-center md:block hidden`}>
             Press Enter to send, Shift+Enter for new line
           </div>
         </div>
@@ -363,33 +365,55 @@ function MessageBubble({ message, isDarkMode = false }: { message: Message; isDa
   };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex w-full max-w-full ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start space-x-2`}>
-        <div className={`flex-shrink-0 ${isUser ? 'ml-2' : 'mr-2'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            isUser ? 'bg-blue-600' : 'bg-gray-600'
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} px-1 md:px-0`}>
+      <div className={`flex w-full max-w-full ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start space-x-2 md:space-x-3`}>
+        <div className={`flex-shrink-0 ${isUser ? 'ml-2 md:ml-3' : 'mr-2 md:mr-3'}`}>
+          <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center ${
+            isUser ? 'bg-blue-600' : 'bg-orange-500'
           }`}>
-            {isUser ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
+            {isUser ? (
+              <>
+                <User size={14} className="text-white md:hidden" />
+                <User size={16} className="text-white hidden md:block" />
+              </>
+            ) : (
+              <>
+                <img src="/jarvis.png" alt="Jarvis" className="w-3.5 h-3.5 md:hidden" />
+                <img src="/jarvis.png" alt="Jarvis" className="w-4 h-4 hidden md:block" />
+              </>
+            )}
           </div>
         </div>
 
-        <div className={`rounded-lg px-4 py-3 ${
+        <div className={`rounded-lg px-3 py-2 md:px-4 md:py-3 ${
           isUser 
             ? 'bg-blue-600 text-white' 
             : isDarkMode 
               ? 'bg-gray-700 text-gray-100'
               : 'bg-gray-100 text-gray-900'
         } max-w-none break-words min-w-0 flex-1`}>
-          <div className={`text-sm whitespace-pre-wrap ${
+          <div className={`text-sm md:text-base whitespace-pre-wrap ${
             isUser 
               ? 'text-white' 
               : isDarkMode 
                 ? 'text-gray-100' 
                 : 'text-gray-800'
           }`}>
-            {formatContent(message.content)}
+            {!isUser && message.content === '' ? (
+              // Show streaming animation for empty assistant messages
+              <div className="flex items-center space-x-2 py-2">
+                <div className={`flex space-x-1`}>
+                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-400' : 'bg-gray-500'} rounded-full animate-bounce`}></div>
+                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-400' : 'bg-gray-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
+                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-400' : 'bg-gray-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
+                </div>
+                <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Jarvis is thinking...</span>
+              </div>
+            ) : (
+              formatContent(message.content)
+            )}
           </div>
-          <p className={`text-xs mt-2 ${
+          <p className={`text-xs mt-1 md:mt-2 ${
             isUser 
               ? 'text-blue-200' 
               : isDarkMode 

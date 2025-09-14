@@ -1,5 +1,5 @@
 {
-  "name": "dumbelldoor-web",
+  "name": "jarvis",
   "version": "1.0.0",
   "private": true,
   "description": "AI-powered code assistant for analyzing and understanding codebases",
@@ -9,7 +9,7 @@
     "build:docker": "ESLINT_NO_DEV_ERRORS=true next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "docker:build": "docker build -t dumbelldoor-web .",
+    "docker:build": "docker build -t jarvis .",
     "docker:run": "docker-compose up -d",
     "docker:stop": "docker-compose down",
     "docker:logs": "docker-compose logs -f"
@@ -44,6 +44,6 @@
     "react",
     "typescript"
   ],
-  "author": "DumbledoorWeb Team",
+  "author": "Jarvis Team",
   "license": "MIT"
 }
