@@ -6,7 +6,7 @@ export const AppConfig = {
   },
 
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://13.234.30.39:8001',     //'http://localhost:8001',
     endpoints: {
       askStream: '/ask/stream',
       health: '/health',
