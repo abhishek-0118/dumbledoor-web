@@ -6,7 +6,7 @@ export const AppConfig = {
   },
 
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://jarvis.orangehealth.dev',    //'http://13.234.30.39:8001',     //
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://jarvis-api.orangehealth.dev',    //'http://13.234.30.39:8001',     //
     endpoints: {
       askStream: '/ask/stream',
       health: '/health',
