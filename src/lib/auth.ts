@@ -160,7 +160,7 @@ export class AuthService {
    */
   async fetchUserInfo(): Promise<User | null> {
     try {
-      const response = await this.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/auth/me`);
+      const response = await this.authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://jarvis-api.orangehealth.dev'}/auth/me`);
       
       if (response.ok) {
         const user = await response.json();
@@ -178,7 +178,7 @@ export class AuthService {
    */
   async initiateGoogleLogin(): Promise<string> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/auth/google/login`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://jarvis-api.orangehealth.dev'}/auth/google/login`);
       const data = await response.json();
       return data.auth_url;
     } catch (error) {
