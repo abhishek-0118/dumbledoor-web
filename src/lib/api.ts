@@ -42,6 +42,18 @@ export interface AddMessageRequest {
   metadata?: Record<string, any>;
 }
 
+export interface Repository {
+  name: string;
+  url?: string;
+  type: 'github' | 'local';
+  path?: string;
+}
+
+export interface RepositoriesResponse {
+  repositories: Repository[];
+  total_count: number;
+}
+
 export class ApiService {
   private static instance: ApiService;
   
@@ -268,6 +280,27 @@ export class ApiService {
     console.log('Creating authenticated EventSource with URL:', urlWithToken.replace(/token=[^&]+/, 'token=***'));
     
     return new EventSource(urlWithToken);
+  }
+
+  /**
+   * Get list of indexed repositories
+   */
+  async getRepositories(): Promise<RepositoriesResponse> {
+    try {
+      const response = await authService.authenticatedFetch(
+        `${API_BASE_URL}/repositories`
+      );
+      
+      if (response.ok) {
+        return await response.json();
+      } else {
+        console.error('Failed to fetch repositories:', response.status);
+        return { repositories: [], total_count: 0 };
+      }
+    } catch (error) {
+      console.error('Error fetching repositories:', error);
+      return { repositories: [], total_count: 0 };
+    }
   }
 }
 

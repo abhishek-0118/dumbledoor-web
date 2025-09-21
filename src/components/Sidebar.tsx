@@ -45,8 +45,12 @@ export default function Sidebar({
       <div className="p-4">
         <button
           onClick={onNewChat}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onNewChat();
+          }}
           className={`w-full flex items-center ${collapsed ? 'justify-center' : 'justify-center space-x-2'} bg-gray-700 hover:bg-gray-600 rounded-lg py-3 px-4 transition-colors`}
-          title={collapsed ? "New Chat" : undefined}
+          title={collapsed ? "New Chat (Left or Right click)" : "New Chat (Left or Right click)"}
         >
           <Plus size={18} />
           {!collapsed && <span>New Chat</span>}

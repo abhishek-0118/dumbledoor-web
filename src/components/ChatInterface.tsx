@@ -66,9 +66,14 @@ export default function ChatInterface() {
         
         setChats(chatList);
         
-        // Auto-select first chat if available
+        // Auto-select first chat if available and it has messages
         if (chatList.length > 0 && !currentChat) {
-          await selectChat(chatList[0]);
+          const firstChat = chatList[0];
+          const firstSummary = summaries[0];
+          // Only auto-select if the chat has messages
+          if (firstSummary && firstSummary.message_count > 0) {
+            await selectChat(firstChat);
+          }
         }
       } catch (error) {
         console.error('Error loading chats:', error);

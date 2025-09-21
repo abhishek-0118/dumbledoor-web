@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github.css';
 import { AppConfig } from '@/config/app.config';
+import RepositoryInfo from './RepositoryInfo';
 
 interface ChatAreaProps {
   chat: Chat | null;
@@ -109,7 +110,7 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
         <div className="w-full mx-auto p-3 md:p-6 space-y-4 md:space-y-6 pb-4">
           {!chat ? (
             // Welcome screen when no chat is selected
-            <div className="flex items-center justify-center h-full p-8">
+            <div className="flex flex-col items-center justify-center h-full p-8 space-y-8">
               <div className="text-center max-w-md">
                 <div className="relative mb-6">
                   <div className={`w-20 h-20 mx-auto rounded-full ${isDarkMode ? 'bg-gradient-to-br from-blue-600 to-purple-600' : 'bg-gradient-to-br from-blue-500 to-purple-500'} flex items-center justify-center shadow-lg`}>
@@ -120,7 +121,7 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
                   </div>
                 </div>
                 <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-3`}>
-                  Welcome to {AppConfig.chat.welcomeMessages.title}
+                  {AppConfig.chat.welcomeMessages.title}
                 </h2>
                 <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-lg`}>
                   {AppConfig.chat.welcomeMessages.subtitle}
@@ -135,6 +136,11 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
                     ))}
                   </div>
                 </div>
+              </div>
+              
+              {/* Repository Information */}
+              <div className="w-full">
+                <RepositoryInfo isDarkMode={isDarkMode} />
               </div>
             </div>
           ) : chat.messages.length === 0 ? (
@@ -179,36 +185,38 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
         </div>
       </div>
 
-      {/* Message Input - Fixed at bottom with proper safe area */}
-      <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-t flex-shrink-0 sticky bottom-0 safe-area-padding-bottom`}>
-        <div className="w-full mx-auto p-3 md:p-4">
-          <form onSubmit={handleSubmit} className="flex items-end space-x-2 md:space-x-3">
-            <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask me anything about your codebase..."
-                className={`w-full p-3 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-800 placeholder-gray-500'} rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32 text-sm md:text-base`}
-                rows={1}
-                disabled={isLoading}
-              />
+      {/* Message Input - Only show when there's an active chat */}
+      {chat && (
+        <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-t flex-shrink-0 sticky bottom-0 safe-area-padding-bottom`}>
+          <div className="w-full mx-auto p-3 md:p-4">
+            <form onSubmit={handleSubmit} className="flex items-end space-x-2 md:space-x-3">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask me anything about your codebase..."
+                  className={`w-full p-3 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-800 placeholder-gray-500'} rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32 text-sm md:text-base`}
+                  rows={1}
+                  disabled={isLoading}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!message.trim() || isLoading}
+                className="bg-blue-600 text-white p-2.5 md:p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              >
+                <Send size={18} className="md:hidden" />
+                <Send size={20} className="hidden md:block" />
+              </button>
+            </form>
+            <div className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-center md:block hidden`}>
+              Press Enter to send, Shift+Enter for new line
             </div>
-            <button
-              type="submit"
-              disabled={!message.trim() || isLoading}
-              className="bg-blue-600 text-white p-2.5 md:p-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-            >
-              <Send size={18} className="md:hidden" />
-              <Send size={20} className="hidden md:block" />
-            </button>
-          </form>
-          <div className={`mt-2 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-center md:block hidden`}>
-            Press Enter to send, Shift+Enter for new line
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
