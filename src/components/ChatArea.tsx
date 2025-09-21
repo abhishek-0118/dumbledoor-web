@@ -19,50 +19,52 @@ interface ChatAreaProps {
 
 export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = false }: ChatAreaProps) {
   const [message, setMessage] = useState('');
-  const [loadingText, setLoadingText] = useState('Analyzing the codebase');
-  const [isTyping, setIsTyping] = useState(false);
-  const [showTypingAnimation, setShowTypingAnimation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
 
-  // Cycling loading messages
+  // Check if user is at the bottom of the chat
+  const checkIfUserAtBottom = () => {
+    if (!messagesContainerRef.current) return true;
+    
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const threshold = 150; // Increased threshold - more generous detection
+    return scrollTop + clientHeight >= scrollHeight - threshold;
+  };
+
+  // Handle scroll events to track user position
+  const handleScroll = () => {
+    setIsUserAtBottom(checkIfUserAtBottom());
+  };
+
+  // Auto-scroll only when appropriate
   useEffect(() => {
-    if (!isLoading) {
-      setIsTyping(false);
-      setShowTypingAnimation(false);
-      return;
+    if (!chat?.messages) return;
+    
+    const currentMessageCount = chat.messages.length;
+    const isNewMessage = currentMessageCount > lastMessageCount;
+    const lastMessage = chat.messages[chat.messages.length - 1];
+    const isStreamingAssistant = isLoading && lastMessage?.role === 'assistant';
+    
+    // More sophisticated streaming detection
+    const isStreamingUpdate = isStreamingAssistant && !isNewMessage;
+    
+    // Only auto-scroll if:
+    // 1. User is at the bottom AND (it's a new message OR streaming and user was already at bottom)
+    // 2. It's the first message in the chat
+    // Do NOT scroll for streaming updates when user has scrolled up
+    const shouldScroll = (isUserAtBottom && (isNewMessage || isStreamingAssistant)) || currentMessageCount <= 1;
+    
+    if (shouldScroll) {
+      messagesEndRef.current?.scrollIntoView({ 
+        behavior: isStreamingUpdate ? 'auto' : AppConfig.ui.chat.autoScrollBehavior 
+      });
     }
     
-    const messages = AppConfig.chat.loadingMessages;
-    
-    let currentIndex = 0;
-    const interval = setInterval(() => {
-      currentIndex = (currentIndex + 1) % messages.length;
-      setLoadingText(messages[currentIndex]);
-    }, AppConfig.ui.animation.loadingMessageInterval);
-    
-    return () => clearInterval(interval);
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (chat?.messages && chat.messages.length > 0) {
-      const lastMessage = chat.messages[chat.messages.length - 1];
-      if (lastMessage.role === 'assistant' && lastMessage.content && isLoading) {
-        setTimeout(() => {
-          setShowTypingAnimation(true);
-        }, AppConfig.ui.animation.loadingAnimationDelay);
-        
-        setTimeout(() => {
-          setIsTyping(true);
-          setLoadingText('AI is responding');
-        }, AppConfig.ui.animation.typingIndicatorDelay);
-      }
-    }
-  }, [chat?.messages, isLoading]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: AppConfig.ui.chat.autoScrollBehavior });
-  }, [chat?.messages]);
+    setLastMessageCount(currentMessageCount);
+  }, [chat?.messages, isUserAtBottom, isLoading]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -86,106 +88,92 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
     }
   };
 
-  if (!chat) {
-    return (
-      <div className={`flex-1 flex items-center justify-center ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-        <div className="text-center">
-          <img src="/jarvis.png" alt="Jarvis" className="w-16 h-16 mx-auto mb-4 opacity-60" />
-          <h2 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-2`}>
-            {AppConfig.chat.welcomeMessages.title}
-          </h2>
-          <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
-            {AppConfig.chat.welcomeMessages.subtitle}
-          </p>
-          <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} space-y-1`}>
-            <p>Try asking:</p>
-            {AppConfig.chat.welcomeMessages.suggestions.map((suggestion, index) => (
-              <p key={index}>• "{suggestion}"</p>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className={`flex-1 flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-white'} h-full min-w-0 relative`}>
+    <div className={`flex flex-col ${isDarkMode ? 'bg-gray-800' : 'bg-white'} h-full min-w-0 relative`}>
       {/* Chat Header - Hidden on mobile, shown on desktop */}
-      <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-b px-4 md:px-6 py-3 md:py-4 flex-shrink-0 hidden md:block`}>
-        <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{chat.title}</h2>
-        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          {chat.messages.length} messages • Last updated {format(chat.updatedAt, AppConfig.ui.chat.messageTimestampFormat)}
-        </p>
-      </div>
+      {chat && (
+        <div className={`${isDarkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-white'} border-b px-4 md:px-6 py-3 md:py-4 flex-shrink-0 hidden md:block`}>
+          <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{chat.title}</h2>
+          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            {chat.messages.length} messages • Last updated {format(chat.updatedAt, AppConfig.ui.chat.messageTimestampFormat)}
+          </p>
+        </div>
+      )}
 
       {/* Messages Area - Scrollable container */}
-      <div className="flex-1 overflow-y-auto">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto"
+        onScroll={handleScroll}
+      >
         <div className="w-full mx-auto p-3 md:p-6 space-y-4 md:space-y-6 pb-4">
-          {chat.messages.length === 0 ? (
+          {!chat ? (
+            // Welcome screen when no chat is selected
+            <div className="flex items-center justify-center h-full p-8">
+              <div className="text-center max-w-md">
+                <div className="relative mb-6">
+                  <div className={`w-20 h-20 mx-auto rounded-full ${isDarkMode ? 'bg-gradient-to-br from-blue-600 to-purple-600' : 'bg-gradient-to-br from-blue-500 to-purple-500'} flex items-center justify-center shadow-lg`}>
+                    <img src="/jarvis.png" alt="Jarvis" className="w-10 h-10" />
+                  </div>
+                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 ${isDarkMode ? 'bg-green-500' : 'bg-green-400'} rounded-full border-2 ${isDarkMode ? 'border-gray-800' : 'border-white'} flex items-center justify-center`}>
+                    <div className="w-3 h-3 bg-white rounded-full"></div>
+                  </div>
+                </div>
+                <h2 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-3`}>
+                  Welcome to {AppConfig.chat.welcomeMessages.title}
+                </h2>
+                <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-lg`}>
+                  {AppConfig.chat.welcomeMessages.subtitle}
+                </p>
+                <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} space-y-2`}>
+                  <p className="font-medium">Try asking:</p>
+                  <div className="space-y-1">
+                    {AppConfig.chat.welcomeMessages.suggestions.map((suggestion, index) => (
+                      <p key={index} className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} hover:${isDarkMode ? 'text-white' : 'text-gray-800'} transition-colors cursor-pointer p-2 rounded-md ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+                        "{suggestion}"
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : chat.messages.length === 0 ? (
+            // Empty chat state
             <div className="text-center py-8 md:py-12">
-              <img src="/jarvis.png" alt="Jarvis" className="w-12 h-12 mx-auto mb-4 opacity-60" />
-              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm md:text-base`}>
+              <div className="relative mb-6">
+                <div className={`w-16 h-16 mx-auto rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center`}>
+                  <img src="/jarvis.png" alt="Jarvis" className="w-8 h-8" />
+                </div>
+                <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${isDarkMode ? 'bg-blue-500' : 'bg-blue-400'} rounded-full border-2 ${isDarkMode ? 'border-gray-800' : 'border-white'} flex items-center justify-center`}>
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+              </div>
+              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-lg font-medium mb-4`}>
                 {AppConfig.chat.emptyStateMessages.title}
               </p>
-              <div className={`mt-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} space-y-1`}>
-                <p>You can ask about:</p>
-                {AppConfig.chat.emptyStateMessages.suggestions.map((suggestion, index) => (
-                  <p key={index} className="text-xs md:text-sm">• {suggestion}</p>
-                ))}
+              <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} space-y-2`}>
+                <p className="font-medium">You can ask about:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-md mx-auto">
+                  {AppConfig.chat.emptyStateMessages.suggestions.map((suggestion, index) => (
+                    <div key={index} className={`text-xs md:text-sm p-2 rounded-md ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
-            chat.messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} isDarkMode={isDarkMode} />
+            // Chat messages
+            chat.messages.map((msg, index) => (
+              <MessageBubble 
+                key={msg.id} 
+                message={msg} 
+                isDarkMode={isDarkMode} 
+                isStreaming={isLoading && msg.role === 'assistant' && index === chat.messages.length - 1}
+              />
             ))
           )}
 
-          {isLoading && (
-            <div className={`flex flex-col items-center justify-center space-y-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} py-8 md:py-12`}>
-              <div className="relative">
-                {showTypingAnimation && isTyping ? (
-                  <div className={`w-12 h-12 md:w-16 md:h-16 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full flex items-center justify-center`}>
-                    <div className="flex space-x-1">
-                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`}></div>
-                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
-                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className={`w-12 h-12 md:w-16 md:h-16 border-4 ${isDarkMode ? 'border-gray-600 border-t-blue-400' : 'border-gray-200 border-t-blue-500'} rounded-full animate-spin`}></div>
-                    <div className={`absolute inset-0 w-12 h-12 md:w-16 md:h-16 border-4 ${isDarkMode ? 'border-gray-700 border-r-purple-400' : 'border-gray-100 border-r-purple-500'} rounded-full animate-spin`} style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-                    <img src="/jarvis.png" alt="Jarvis" className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-5 h-5 md:hidden" />
-                    <img src="/jarvis.png" alt="Jarvis" className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 hidden md:block" />
-                  </>
-                )}
-              </div>
-              
-              <div className="text-center px-4">
-                <div className={`text-lg md:text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'} mb-2 transition-all duration-500`}>
-                  {loadingText}
-                </div>
-                <div className={`flex items-center justify-center space-x-1 text-xs md:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  <span>{showTypingAnimation && isTyping ? 'AI is typing' : 'Please wait while I process your request'}</span>
-                  <div className="flex space-x-1 ml-2">
-                    <div className={`w-1 h-1 md:w-1.5 md:h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`}></div>
-                    <div className={`w-1 h-1 md:w-1.5 md:h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
-                    <div className={`w-1 h-1 md:w-1.5 md:h-1.5 ${isDarkMode ? (showTypingAnimation && isTyping ? 'bg-green-400' : 'bg-blue-400') : (showTypingAnimation && isTyping ? 'bg-green-500' : 'bg-blue-500')} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-              
-              {!showTypingAnimation && !isTyping && (
-                <div className="flex space-x-1 md:space-x-2">
-                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'} rounded-full animate-pulse`}></div>
-                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-purple-400' : 'bg-purple-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.2s' }}></div>
-                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.4s' }}></div>
-                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-yellow-400' : 'bg-yellow-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.6s' }}></div>
-                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isDarkMode ? 'bg-red-400' : 'bg-red-500'} rounded-full animate-pulse`} style={{ animationDelay: '0.8s' }}></div>
-                </div>
-              )}
-            </div>
-          )}
 
           <div ref={messagesEndRef} />
         </div>
@@ -201,8 +189,8 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about your codebase..."
-                className={`w-full p-3 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-800'} rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32 text-sm md:text-base`}
+                placeholder="Ask me anything about your codebase..."
+                className={`w-full p-3 border ${isDarkMode ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-gray-800 placeholder-gray-500'} rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-h-32 text-sm md:text-base`}
                 rows={1}
                 disabled={isLoading}
               />
@@ -225,20 +213,94 @@ export default function ChatArea({ chat, onSendMessage, isLoading, isDarkMode = 
   );
 }
 
-function MessageBubble({ message, isDarkMode = false }: { message: Message; isDarkMode?: boolean }) {
+function MessageBubble({ message, isDarkMode = false, isStreaming = false }: { message: Message; isDarkMode?: boolean; isStreaming?: boolean }) {
   const isUser = message.role === 'user';
-  const [copiedStates, setCopiedStates] = useState<Record<number, boolean>>({});
+  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
+  
+  // Create a stable counter that doesn't reset on re-renders
+  const codeBlockCounterRef = useRef<Record<string, number>>({});
+  
+  // Get or initialize counter for this message
+  if (!codeBlockCounterRef.current[message.id]) {
+    codeBlockCounterRef.current[message.id] = 0;
+  }
 
-  const copyToClipboard = async (text: string, index: number) => {
+  const copyToClipboard = async (text: string, blockId: string) => {
     try {
+      console.log('Copying text:', text.substring(0, 50) + '...', 'blockId:', blockId);
       await navigator.clipboard.writeText(text);
-      setCopiedStates(prev => ({ ...prev, [index]: true }));
+      console.log('Copy successful, setting copied state for:', blockId);
+      setCopiedStates(prev => ({ ...prev, [blockId]: true }));
       setTimeout(() => {
-        setCopiedStates(prev => ({ ...prev, [index]: false }));
+        console.log('Clearing copied state for:', blockId);
+        setCopiedStates(prev => ({ ...prev, [blockId]: false }));
       }, AppConfig.ui.animation.copiedIndicatorTimeout);
     } catch (err) {
       console.error('Failed to copy text: ', err);
     }
+  };
+
+  // Blinking cursor component with visibility delay
+  const BlinkingCursor = ({ delay = 100 }: { delay?: number }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, delay);
+      
+      return () => clearTimeout(timer);
+    }, [delay]);
+
+    if (!isVisible) return null;
+
+    return (
+      <span 
+        className={`inline-block w-0.5 h-5 ml-1 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-600'} rounded-sm animate-pulse`}
+        style={{
+          animation: 'blink 1.2s infinite'
+        }}
+      />
+    );
+  };
+
+  // Helper function to detect if inline code is likely a function/variable reference
+  const isFunctionReference = (codeText: string): boolean => {
+    const text = codeText.trim();
+    
+    // Function name patterns (camelCase, snake_case, PascalCase)
+    const functionPatterns = [
+      /^[a-zA-Z_$][a-zA-Z0-9_$]*\(\)$/, // functionName()
+      /^[a-zA-Z_$][a-zA-Z0-9_$.]*\.[a-zA-Z_$][a-zA-Z0-9_$]*\(\)$/, // object.method()
+      /^[a-zA-Z_$][a-zA-Z0-9_$]*$/, // functionName or variableName
+      /^[A-Z][a-zA-Z0-9_]*$/, // ClassName or CONSTANT
+      /^[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*$/, // camelCase
+      /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/, // snake_case
+      /^[a-zA-Z_$][a-zA-Z0-9_$.]*\.[a-zA-Z_$][a-zA-Z0-9_$]*$/, // object.property
+      /^[a-zA-Z_$][a-zA-Z0-9_$]*::[a-zA-Z_$][a-zA-Z0-9_$]*$/, // namespace::function (C++)
+      /^[a-z]+[A-Z][a-zA-Z0-9]*$/, // camelCase starting with lowercase
+    ];
+    
+    // Check if it matches function/variable patterns
+    const isFunction = functionPatterns.some(pattern => pattern.test(text));
+    
+    // Exclude if it looks like a code snippet (contains operators, keywords, etc.)
+    const codeSnippetPatterns = [
+      /[{}[\]();,]/g, // Contains brackets, braces, semicolons
+      /\s*[=<>!+\-*/%&|^~]\s*/g, // Contains operators  
+      /\s+(if|else|for|while|function|class|const|let|var|return|import|export|from|async|await|try|catch)\s+/gi, // Contains keywords
+      /^\s*\/\/|^\s*\/\*|\*\/\s*$/, // Contains comments
+      /\n|\r/, // Multi-line
+      /^https?:\/\//, // URLs
+      /\s{2,}/, // Multiple spaces
+    ];
+    
+    const isCodeSnippet = codeSnippetPatterns.some(pattern => pattern.test(text));
+    
+    // Short single words or function calls are likely references
+    const isShortReference = text.length <= 50 && !text.includes(' ') && !text.includes('\n');
+    
+    return isFunction && !isCodeSnippet && isShortReference;
   };
 
   const formatContent = (content: string) => {
@@ -253,6 +315,11 @@ function MessageBubble({ message, isDarkMode = false }: { message: Message; isDa
             const inline = !(props as any).inline === false;
             
             if (!inline) {
+              const currentCounter = codeBlockCounterRef.current[message.id]++;
+              const blockId = `code-${message.id}-${currentCounter}`;
+              const codeText = String(children).replace(/\n$/, ''); // Remove trailing newline
+              const isCopied = copiedStates[blockId];
+              
               return (
                 <div className="my-3 max-w-full">
                   <div className="bg-gray-800 text-gray-200 rounded-lg overflow-hidden">
@@ -261,14 +328,24 @@ function MessageBubble({ message, isDarkMode = false }: { message: Message; isDa
                         {language || 'Code'}
                       </span>
                       <button
-                        onClick={() => copyToClipboard(String(children), Math.random())}
-                        className="flex items-center space-x-1 text-gray-300 hover:text-white transition-colors p-1 rounded"
-                        title="Copy code"
+                        onClick={() => {
+                          console.log('Button clicked for blockId:', blockId, 'isCopied:', isCopied);
+                          copyToClipboard(codeText, blockId);
+                        }}
+                        className={`flex items-center space-x-2 transition-all duration-200 px-2 py-1 rounded text-xs font-medium ${
+                          isCopied 
+                            ? 'text-green-300 bg-green-800/30 border border-green-600/50' 
+                            : 'text-gray-300 hover:text-white hover:bg-gray-600 border border-transparent'
+                        }`}
+                        title={isCopied ? "Copied!" : "Copy code"}
                       >
-                        <Copy size={14} />
+                        {isCopied ? <Check size={12} /> : <Copy size={12} />}
+                        <span className={isCopied ? 'text-green-300' : ''}>
+                          {isCopied ? 'Copied!' : 'Copy'}
+                        </span>
                       </button>
                     </div>
-                    <pre className="p-4 overflow-x-auto text-sm max-w-full">
+                    <pre className="p-4 text-sm max-w-full code-wrap">
                       <code className={className} {...props}>
                         {children}
                       </code>
@@ -278,19 +355,44 @@ function MessageBubble({ message, isDarkMode = false }: { message: Message; isDa
               );
             }
             
-            return (
-              <code 
-                className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm font-mono"
-                {...props}
-              >
-                {children}
-              </code>
-            );
+            // Handle inline code - distinguish between function references and code snippets
+            const codeText = String(children);
+            const isFunction = isFunctionReference(codeText);
+            
+            if (isFunction) {
+              // Function/variable reference - red and bold with better contrast
+              return (
+                <code 
+                  className={`font-mono text-sm code-function-ref ${
+                    isDarkMode 
+                      ? 'text-red-300 bg-red-900/30 border border-red-700/50' 
+                      : 'text-red-700 bg-red-100 border border-red-300/50'
+                  } px-2 py-1 rounded shadow-sm`}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            } else {
+              // Regular inline code snippet - improved styling
+              return (
+                <code 
+                  className={`font-mono text-sm font-medium ${
+                    isDarkMode 
+                      ? 'text-blue-300 bg-blue-900/30 border border-blue-700/50' 
+                      : 'text-blue-700 bg-blue-100 border border-blue-300/50'
+                  } px-2 py-1 rounded shadow-sm`}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
           },
           pre({ children, ...props }) {
             // Return the pre element directly without wrapping in p
             return (
-              <pre className="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto text-sm my-3 max-w-full" {...props}>
+              <pre className="bg-gray-800 text-gray-200 p-4 rounded-lg text-sm my-3 max-w-full code-wrap" {...props}>
                 {children}
               </pre>
             );
@@ -310,13 +412,13 @@ function MessageBubble({ message, isDarkMode = false }: { message: Message; isDa
             return <p className="mb-2 last:mb-0" {...props}>{children}</p>;
           },
           ul({ children }) {
-            return <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>;
+            return <ul className="list-disc list-inside mb-2 flex flex-wrap gap-x-4 gap-y-1">{children}</ul>;
           },
           ol({ children }) {
-            return <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>;
+            return <ol className="list-decimal list-inside mb-2 flex flex-wrap gap-x-4 gap-y-1">{children}</ol>;
           },
           li({ children }) {
-            return <li className="ml-2">{children}</li>;
+            return <li className="ml-2 inline-block">{children}</li>;
           },
           h1({ children }) {
             return <h1 className="text-lg font-bold mb-2">{children}</h1>;
@@ -403,14 +505,21 @@ function MessageBubble({ message, isDarkMode = false }: { message: Message; isDa
               // Show streaming animation for empty assistant messages
               <div className="flex items-center space-x-2 py-2">
                 <div className={`flex space-x-1`}>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-400' : 'bg-gray-500'} rounded-full animate-bounce`}></div>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-400' : 'bg-gray-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
-                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-400' : 'bg-gray-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
+                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-blue-400' : 'bg-blue-500'} rounded-full animate-bounce`}></div>
+                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-purple-400' : 'bg-purple-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
+                  <div className={`w-2 h-2 ${isDarkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
                 </div>
                 <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Jarvis is thinking...</span>
               </div>
             ) : (
-              formatContent(message.content)
+              <div className="flex items-start">
+                <div className="flex-1">
+                  {formatContent(message.content)}
+                </div>
+                {!isUser && isStreaming && (
+                  <BlinkingCursor delay={200} />
+                )}
+              </div>
             )}
           </div>
           <p className={`text-xs mt-1 md:mt-2 ${

@@ -9,6 +9,8 @@ import SourcesSidebar from './SourcesSidebar';
 import SettingsPanel from './SettingsPanel';
 import { Chat, Message, Source } from '@/types/chat';
 import { AppConfig, buildStreamUrl, generateGitHubUrl } from '@/config/app.config';
+import { useAuth } from './AuthProvider';
+import { apiService, ChatSummary, ChatData } from '@/lib/api';
 
 interface SearchSettings {
   k: number;
@@ -17,15 +19,19 @@ interface SearchSettings {
 }
 
 export default function ChatInterface() {
+  const { user, refreshUser } = useAuth();
+  const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(AppConfig.search.default);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Mobile detection
   useEffect(() => {
@@ -38,100 +44,228 @@ export default function ChatInterface() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Initialize with a default chat since we're not using auth
+  // Load user's chats from backend
   useEffect(() => {
-    const defaultChat: Chat = {
-      id: 'default-chat',
-      title: AppConfig.chat.defaultChat.title,
-      userId: AppConfig.chat.defaultChat.userId,
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const loadChats = async () => {
+      if (!user) return;
+      
+      setIsLoadingChats(true);
+      try {
+        const summaries = await apiService.getUserChats();
+        setChatSummaries(summaries);
+        
+        // Convert summaries to Chat objects for sidebar display
+        const chatList: Chat[] = summaries.map(summary => ({
+          id: summary.id,
+          title: summary.title,
+          userId: user.id,
+          messages: [],
+          createdAt: new Date(summary.created_at),
+          updatedAt: new Date(summary.updated_at),
+        }));
+        
+        setChats(chatList);
+        
+        // Auto-select first chat if available
+        if (chatList.length > 0 && !currentChat) {
+          await selectChat(chatList[0]);
+        }
+      } catch (error) {
+        console.error('Error loading chats:', error);
+      } finally {
+        setIsLoadingChats(false);
+      }
     };
-    setCurrentChat(defaultChat);
-    setChats([defaultChat]);
-  }, []);
+
+    loadChats();
+  }, [user]);
 
 
-  const createNewChat = () => {
+  const createNewChat = async () => {
+    if (!user) return;
+    
     // Prevent creating new chat if current chat is empty
     if (currentChat && currentChat.messages.length === 0) {
       return;
     }
     
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 9);
-    const chatId = `jarvis-${timestamp}-${randomId}`;
-    const newChat: Chat = {
-      id: chatId,
-      title: AppConfig.chat.defaultNewChatTitle,
-      userId: AppConfig.chat.defaultChat.userId,
-      messages: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setChats(prev => [newChat, ...prev]);
-    setCurrentChat(newChat);
-    setSources([]);
+    try {
+      const newChatData = await apiService.createChat(AppConfig.chat.defaultNewChatTitle);
+      
+      if (newChatData) {
+        const newChat: Chat = {
+          id: newChatData.id,
+          title: newChatData.title,
+          userId: user.id,
+          messages: [],
+          createdAt: new Date(newChatData.created_at),
+          updatedAt: new Date(newChatData.updated_at),
+        };
+        
+        setChats(prev => [newChat, ...prev]);
+        setCurrentChat(newChat);
+        setSources([]);
+        
+        // Update chat summaries
+        const newSummary: ChatSummary = {
+          id: newChatData.id,
+          title: newChatData.title,
+          created_at: newChatData.created_at,
+          updated_at: newChatData.updated_at,
+          message_count: 0,
+        };
+        setChatSummaries(prev => [newSummary, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+    }
   };
 
-  const selectChat = (chat: Chat) => {
-    setCurrentChat(chat);
-    // Get sources from the last assistant message if any
-    const lastAssistantMessage = chat.messages
-      .filter(m => m.role === 'assistant')
-      .pop();
-    setSources(lastAssistantMessage?.sources || []);
-  };
-
-  const deleteChat = (chatId: string) => {
-    setChats(prev => prev.filter(chat => chat.id !== chatId));
-    if (currentChat?.id === chatId) {
-      const remainingChats = chats.filter(chat => chat.id !== chatId);
-      setCurrentChat(remainingChats[0] || null);
+  const selectChat = async (chat: Chat) => {
+    try {
+      // Load full chat data with messages from backend
+      const chatData = await apiService.getChat(chat.id);
+      
+      if (chatData) {
+        // Convert backend messages to frontend format
+        const messages: Message[] = chatData.messages.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          role: msg.role,
+          timestamp: new Date(msg.timestamp),
+          sources: msg.metadata?.sources || [],
+        }));
+        
+        const fullChat: Chat = {
+          ...chat,
+          messages,
+        };
+        
+        setCurrentChat(fullChat);
+        
+        // Update the chat in the list with messages
+        setChats(prev => prev.map(c => 
+          c.id === chat.id ? fullChat : c
+        ));
+        
+        // Get sources from the last assistant message if any
+        const lastAssistantMessage = messages
+          .filter(m => m.role === 'assistant')
+          .pop();
+        setSources(lastAssistantMessage?.sources || []);
+      } else {
+        // Fallback to basic chat if loading fails
+        setCurrentChat(chat);
+        setSources([]);
+      }
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+      setCurrentChat(chat);
       setSources([]);
     }
   };
 
+  const deleteChat = async (chatId: string) => {
+    try {
+      const success = await apiService.deleteChat(chatId);
+      
+      if (success) {
+        setChats(prev => prev.filter(chat => chat.id !== chatId));
+        setChatSummaries(prev => prev.filter(summary => summary.id !== chatId));
+        
+        if (currentChat?.id === chatId) {
+          const remainingChats = chats.filter(chat => chat.id !== chatId);
+          if (remainingChats.length > 0) {
+            await selectChat(remainingChats[0]);
+          } else {
+            setCurrentChat(null);
+            setSources([]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+  };
+
   const sendMessage = async (content: string) => {
-    if (!currentChat) return;
+    if (!currentChat || !user) return;
 
     setIsLoading(true);
     setSources([]);
 
     try {
-      // Add user message
-      const userMessage: Message = {
-        id: `msg-${Date.now()}`,
-        content,
-        role: 'user',
-        timestamp: new Date(),
-      };
-
       // Generate better title from user message if this is the first message
       let chatTitle = currentChat.title;
+      let shouldUpdateTitle = false;
+      
       if (currentChat.messages.length === 0) {
-        // Generate title from first 4-6 words of the user message
         const words = content.trim().split(' ').slice(0, 5);
         const title = words.join(' ');
         chatTitle = title.length > 50 ? title.slice(0, 47) + '...' : title;
         chatTitle = chatTitle.charAt(0).toUpperCase() + chatTitle.slice(1);
+        shouldUpdateTitle = true;
       }
 
-      // Update current chat with user message and new title
-      const updatedChat = {
+      // Create the user message locally first to avoid duplication
+      const userMessage: Message = {
+        id: `msg-${Date.now()}-user`,
+        content,
+        role: 'user',
+        timestamp: new Date(),
+        sources: [],
+      };
+
+      // Add the user message to the chat immediately
+      const chatWithUserMessage = {
         ...currentChat,
-        title: chatTitle,
         messages: [...currentChat.messages, userMessage],
         updatedAt: new Date(),
       };
-      setCurrentChat(updatedChat);
+      
+      setCurrentChat(chatWithUserMessage);
       setChats(prev => prev.map(chat => 
-        chat.id === currentChat.id ? updatedChat : chat
+        chat.id === currentChat.id ? chatWithUserMessage : chat
       ));
 
-      // Start streaming response from backend
-      await streamAIResponse(currentChat.id, content);
+      // Send user message to backend (but don't use the returned messages to avoid duplication)
+      const updatedChatData = await apiService.addMessage(currentChat.id, {
+        role: 'user',
+        content,
+      });
+
+      if (updatedChatData) {
+        // Only update the title and timestamps, not the messages (to avoid duplication)
+        const updatedChat = {
+          ...chatWithUserMessage, // Keep our local messages
+          title: updatedChatData.title,
+          updatedAt: new Date(updatedChatData.updated_at),
+        };
+        
+        setCurrentChat(updatedChat);
+        setChats(prev => prev.map(chat => 
+          chat.id === currentChat.id ? updatedChat : chat
+        ));
+
+        // Update title if needed
+        if (shouldUpdateTitle && chatTitle !== updatedChatData.title) {
+          await apiService.updateChatTitle(currentChat.id, chatTitle);
+          const finalUpdatedChat = { ...updatedChat, title: chatTitle };
+          setCurrentChat(finalUpdatedChat);
+          setChats(prev => prev.map(chat => 
+            chat.id === currentChat.id ? finalUpdatedChat : chat
+          ));
+          setChatSummaries(prev => prev.map(summary =>
+            summary.id === currentChat.id ? { ...summary, title: chatTitle } : summary
+          ));
+        }
+
+        // Start streaming response from backend (this will increment query count)
+        await streamAIResponse(currentChat.id, content);
+        
+        // Refresh user data to update query count after completion
+        await refreshUser();
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -139,199 +273,246 @@ export default function ChatInterface() {
     }
   };
 
-  // Stream AI response using Server-Sent Events
+  // Stream AI response using Server-Sent Events with proper authentication
   const streamAIResponse = async (chatId: string, userMessage: string) => {
-    try {
-      const eventSource = new EventSource(
-        buildStreamUrl(userMessage, searchSettings.k, searchSettings.alpha)
-      );
+    let assistantMessage: Message = {
+      id: `msg-${Date.now()}-assistant`,
+      content: '',
+      role: 'assistant',
+      timestamp: new Date(),
+      sources: [],
+    };
 
-      let assistantMessage: Message = {
-        id: `msg-${Date.now()}-assistant`,
-        content: '',
-        role: 'assistant',
-        timestamp: new Date(),
-        sources: [],
+    // Add initial assistant message with streaming indicator
+    setCurrentChat(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        messages: [...prev.messages, assistantMessage],
+        updatedAt: new Date(),
+      };
+      setChats(prevChats => prevChats.map(chat => 
+        chat.id === prev.id ? updated : chat
+      ));
+      return updated;
+    });
+
+    const streamUrl = apiService.getAuthenticatedStreamUrl(
+      userMessage, 
+      searchSettings.k, 
+      searchSettings.alpha
+    );
+
+    try {
+      // Try modern fetch-based streaming first
+      const stream = await apiService.createAuthenticatedStream(streamUrl);
+      if (!stream) {
+        throw new Error('Failed to create authenticated stream - no stream returned');
+      }
+      await handleFetchBasedStream(stream, assistantMessage);
+    } catch (fetchError) {
+      console.warn('Fetch-based streaming failed, falling back to EventSource:', fetchError);
+      
+      try {
+        // Fallback to EventSource with query parameter
+        const eventSource = apiService.createAuthenticatedEventSource(streamUrl);
+        if (!eventSource) {
+          throw new Error('Failed to create EventSource');
+        }
+        await handleEventSourceStream(eventSource, assistantMessage);
+      } catch (eventSourceError) {
+        console.error('Both streaming methods failed:', eventSourceError);
+        
+        // Show error message to user
+        assistantMessage.content = `${AppConfig.chat.errorMessages.connectionError} ${AppConfig.api.baseUrl}.\n\nError: ${eventSourceError instanceof Error ? eventSourceError.message : AppConfig.chat.errorMessages.genericError}`;
+        updateAssistantMessage(assistantMessage);
+      }
+    }
+  };
+
+  // Handle fetch-based streaming
+  const handleFetchBasedStream = async (stream: ReadableStream<Uint8Array>, assistantMessage: Message) => {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          
+          try {
+            // Parse SSE format: "event: eventname\ndata: {...}"
+            if (line.startsWith('event:')) {
+              continue; // Skip event type lines
+            }
+            
+            if (line.startsWith('data:')) {
+              const jsonData = line.substring(5).trim();
+              if (jsonData === '') continue;
+              
+              const data = JSON.parse(jsonData);
+              await handleStreamData(data, assistantMessage);
+
+              // Handle completion
+              if (data.status === 'completed') {
+                await saveCompletedMessage(assistantMessage);
+                break;
+              }
+            }
+          } catch (parseError) {
+            console.error('Error parsing SSE data:', parseError, 'Line:', line);
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  };
+
+  // Handle EventSource streaming (fallback)
+  const handleEventSourceStream = async (eventSource: EventSource, assistantMessage: Message): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        eventSource.close();
       };
 
-      // Add initial assistant message with streaming indicator
-      assistantMessage.content = ''; // Start with empty content to show loading
-      setCurrentChat(prev => {
-        if (!prev) return prev;
-        const updated = {
-          ...prev,
-          messages: [...prev.messages, assistantMessage],
-          updatedAt: new Date(),
-        };
-        setChats(prevChats => prevChats.map(chat => 
-          chat.id === prev.id ? updated : chat
-        ));
-        return updated;
-      });
-
-      eventSource.onmessage = (event) => {
+      eventSource.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
+          await handleStreamData(data, assistantMessage);
           
-          if (data.sources) {
-            const formattedSources: Source[] = data.sources.map((source: any, index: number) => ({
-              id: `source-${index}`,
-              title: source.repo_name && source.path 
-                ? `${source.repo_name}/${source.path}`
-                : source.path || 'Unknown File',
-              url: generateGitHubUrl(source.repo_name, source.path),
-              description: source.preview || 'No description available',
-              language: source.language,
-              fileType: source.file_type,
-              relevanceScore: source.relevance_score,
-            }));
-            setSources(formattedSources);
-            assistantMessage.sources = formattedSources;
-          }
-
-          if (data.chunk) {
-            assistantMessage.content += data.chunk;
-            
-            // Update the assistant message in real-time
-            setCurrentChat(prev => {
-              if (!prev) return prev;
-              const updatedMessages = prev.messages.map(msg => 
-                msg.id === assistantMessage.id ? { ...assistantMessage } : msg
-              );
-              const updated = {
-                ...prev,
-                messages: updatedMessages,
-                updatedAt: new Date(),
-              };
-              setChats(prevChats => prevChats.map(chat => 
-                chat.id === prev.id ? updated : chat
-              ));
-              return updated;
-            });
+          if (data.status === 'completed') {
+            await saveCompletedMessage(assistantMessage);
+            cleanup();
+            resolve();
           }
         } catch (parseError) {
-          console.error('Error parsing SSE data:', parseError);
+          console.error('Error parsing EventSource data:', parseError);
         }
       };
 
-      eventSource.addEventListener('sources', (event) => {
+      eventSource.addEventListener('sources', async (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.sources) {
-            const formattedSources: Source[] = data.sources.map((source: any, index: number) => ({
-              id: `source-${index}`,
-              title: source.repo_name && source.path 
-                ? `${source.repo_name}/${source.path}`
-                : source.path || 'Unknown File',
-              url: generateGitHubUrl(source.repo_name, source.path),
-              description: source.preview || 'No description available',
-              language: source.language,
-              fileType: source.file_type,
-              relevanceScore: source.relevance_score,
-            }));
-            setSources(formattedSources);
-            assistantMessage.sources = formattedSources;
-          }
+          await handleStreamData(data, assistantMessage);
         } catch (parseError) {
           console.error('Error parsing sources:', parseError);
         }
       });
 
-      eventSource.addEventListener('answer_chunk', (event) => {
+      eventSource.addEventListener('answer_chunk', async (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.chunk) {
-            assistantMessage.content += data.chunk;
-            
-            // Update the assistant message in real-time
-            setCurrentChat(prev => {
-              if (!prev) return prev;
-              const updatedMessages = prev.messages.map(msg => 
-                msg.id === assistantMessage.id ? { ...assistantMessage } : msg
-              );
-              const updated = {
-                ...prev,
-                messages: updatedMessages,
-                updatedAt: new Date(),
-              };
-              setChats(prevChats => prevChats.map(chat => 
-                chat.id === prev.id ? updated : chat
-              ));
-              return updated;
-            });
-          }
+          await handleStreamData(data, assistantMessage);
         } catch (parseError) {
           console.error('Error parsing answer chunk:', parseError);
         }
       });
 
-      eventSource.addEventListener('status', (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Status:', data.message);
-        } catch (parseError) {
-          console.error('Error parsing status:', parseError);
-        }
+      eventSource.addEventListener('completed', async () => {
+        await saveCompletedMessage(assistantMessage);
+        cleanup();
+        resolve();
       });
 
       eventSource.onerror = (error) => {
         console.error('EventSource failed:', error);
-        eventSource.close();
-        
-        // Add fallback message if no content was received
-        if (!assistantMessage.content) {
-          assistantMessage.content = `${AppConfig.chat.errorMessages.connectionError} ${AppConfig.api.baseUrl}.`;
-          
-          setCurrentChat(prev => {
-            if (!prev) return prev;
-            const updatedMessages = prev.messages.map(msg => 
-              msg.id === assistantMessage.id ? { ...assistantMessage } : msg
-            );
-            const updated = {
-              ...prev,
-              messages: updatedMessages,
-              updatedAt: new Date(),
-            };
-            setChats(prevChats => prevChats.map(chat => 
-              chat.id === prev.id ? updated : chat
-            ));
-            return updated;
-          });
-        }
+        cleanup();
+        reject(new Error('EventSource connection failed'));
       };
 
-      eventSource.addEventListener('completed', () => {
-        eventSource.close();
-      });
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        cleanup();
+        reject(new Error('Stream timeout'));
+      }, 30000);
+    });
+  };
 
-    } catch (error) {
-      console.error('Error setting up SSE:', error);
+  // Common function to handle stream data
+  const handleStreamData = async (data: any, assistantMessage: Message) => {
+    // Handle sources
+    if (data.sources) {
+      const formattedSources: Source[] = data.sources.map((source: any, index: number) => ({
+        id: `source-${index}`,
+        title: source.repo_name && source.path 
+          ? `${source.repo_name}/${source.path}`
+          : source.path || 'Unknown File',
+        url: generateGitHubUrl(source.repo_name, source.path),
+        description: source.preview || 'No description available',
+        language: source.language,
+        fileType: source.file_type,
+        relevanceScore: source.relevance_score,
+      }));
+      setSources(formattedSources);
+      assistantMessage.sources = formattedSources;
+    }
+
+    // Handle answer chunks (real-time token streaming)
+    if (data.chunk !== undefined) {
+      // Add the chunk content (could be a single token or multiple characters)
+      assistantMessage.content += data.chunk;
+      updateAssistantMessage(assistantMessage);
       
-      // Fallback response
-      const fallbackMessage: Message = {
-        id: `msg-${Date.now()}-assistant`,
-        content: `${AppConfig.chat.errorMessages.connectionError} ${AppConfig.api.baseUrl}.\n\nError: ${error instanceof Error ? error.message : AppConfig.chat.errorMessages.genericError}`,
-        role: 'assistant',
-        timestamp: new Date(),
-      };
+      // Handle completion
+      if (data.is_final) {
+        await saveCompletedMessage(assistantMessage);
+      }
+    }
+  };
 
-      setCurrentChat(prev => {
-        if (!prev) return prev;
-        const updated = {
-          ...prev,
-          messages: [...prev.messages, fallbackMessage],
-          updatedAt: new Date(),
-        };
-        setChats(prevChats => prevChats.map(chat => 
-          chat.id === prev.id ? updated : chat
-        ));
-        return updated;
-      });
+  // Update assistant message in UI
+  const updateAssistantMessage = (assistantMessage: Message) => {
+    setCurrentChat(prev => {
+      if (!prev) return prev;
+      const updatedMessages = prev.messages.map(msg => 
+        msg.id === assistantMessage.id ? { ...assistantMessage } : msg
+      );
+      const updated = {
+        ...prev,
+        messages: updatedMessages,
+        updatedAt: new Date(),
+      };
+      setChats(prevChats => prevChats.map(chat => 
+        chat.id === prev.id ? updated : chat
+      ));
+      return updated;
+    });
+  };
+
+  // Save completed message to backend
+  const saveCompletedMessage = async (assistantMessage: Message) => {
+    if (assistantMessage.content && currentChat) {
+      try {
+        await apiService.addMessage(currentChat.id, {
+          role: 'assistant',
+          content: assistantMessage.content,
+          metadata: {
+            sources: assistantMessage.sources,
+          },
+        });
+        
+        // Refresh user data to reflect the query count update
+        await refreshUser();
+      } catch (error) {
+        console.error('Error saving assistant message:', error);
+      }
     }
   };
 
   return (
-    <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'} overflow-hidden`}>
+    <div className={`flex flex-col h-full min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'} overflow-hidden`}>
       {/* Mobile Header */}
       <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b px-4 py-3 flex items-center justify-between md:hidden`}>
         <button
@@ -355,22 +536,22 @@ export default function ChatInterface() {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden md:flex h-full">
+      <div className="hidden md:flex h-full max-h-screen overflow-hidden">
         {/* Left Sidebar - Chat History (Desktop) */}
-        <div className="w-64 flex-shrink-0">
+        <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} flex-shrink-0 border-r border-gray-200 dark:border-gray-700 transition-all duration-300`}>
           <Sidebar
             chats={chats}
             currentChat={currentChat}
             onSelectChat={selectChat}
             onNewChat={createNewChat}
             onDeleteChat={deleteChat}
-            collapsed={false}
-            onToggleCollapse={() => {}}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           />
         </div>
 
         {/* Main Content Area (Desktop) */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 h-full max-h-screen overflow-hidden">
           <Navbar 
             onSettingsClick={() => setShowSettings(true)} 
             isDarkMode={isDarkMode}
@@ -379,7 +560,7 @@ export default function ChatInterface() {
           
           {/* Sources Cards (Desktop) */}
           {sources.length > 0 && (
-            <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b p-4`}>
+            <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b p-4 flex-shrink-0 max-h-48 overflow-y-auto`}>
               <div className="flex items-center mb-3">
                 <h3 className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   Sources ({sources.length})
@@ -387,13 +568,13 @@ export default function ChatInterface() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {sources.map((source) => (
-                  <SourceCard key={source.id} source={source} isCompact={true} />
+                  <SourceCard key={source.id} source={source} isCompact={true} isDarkMode={isDarkMode} />
                 ))}
               </div>
             </div>
           )}
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <ChatArea
               chat={currentChat}
               onSendMessage={sendMessage}
@@ -405,10 +586,10 @@ export default function ChatInterface() {
       </div>
 
       {/* Mobile Layout */}
-      <div className="flex-1 flex flex-col md:hidden overflow-hidden">
+      <div className="flex-1 flex flex-col md:hidden overflow-hidden h-full">
         {/* Sources Cards (Mobile) */}
         {sources.length > 0 && (
-          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b p-3`}>
+          <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b p-3 flex-shrink-0 max-h-36 overflow-y-auto`}>
             <div className="flex items-center mb-2">
               <h3 className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Sources ({sources.length})
@@ -416,14 +597,14 @@ export default function ChatInterface() {
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {sources.map((source) => (
-                <SourceCard key={source.id} source={source} isCompact={true} />
+                <SourceCard key={source.id} source={source} isCompact={true} isDarkMode={isDarkMode} />
               ))}
             </div>
           </div>
         )}
 
         {/* Chat Area (Mobile) */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <ChatArea
             chat={currentChat}
             onSendMessage={sendMessage}
@@ -481,7 +662,7 @@ export default function ChatInterface() {
 }
 
 // Compact Source Card Component for horizontal scrolling
-function SourceCard({ source, isCompact = false }: { source: Source; isCompact?: boolean }) {
+function SourceCard({ source, isCompact = false, isDarkMode = false }: { source: Source; isCompact?: boolean; isDarkMode?: boolean }) {
   const handleClick = () => {
     if (source.url.startsWith('https://github.com/')) {
       window.open(source.url, '_blank');
@@ -544,10 +725,10 @@ function SourceCard({ source, isCompact = false }: { source: Source; isCompact?:
     }
   };
 
-  const getLanguageBadge = (language?: string) => {
+  const getLanguageBadge = (language?: string, isDark = false) => {
     if (!language) return null;
     
-    const colors: Record<string, string> = {
+    const lightColors: Record<string, string> = {
       python: 'bg-blue-100 text-blue-800',
       javascript: 'bg-yellow-100 text-yellow-800',
       typescript: 'bg-blue-100 text-blue-800',
@@ -558,7 +739,19 @@ function SourceCard({ source, isCompact = false }: { source: Source; isCompact?:
       c: 'bg-gray-100 text-gray-800',
     };
 
-    const colorClass = colors[language.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    const darkColors: Record<string, string> = {
+      python: 'bg-blue-800 text-blue-200',
+      javascript: 'bg-yellow-800 text-yellow-200',
+      typescript: 'bg-blue-800 text-blue-200',
+      go: 'bg-cyan-800 text-cyan-200',
+      java: 'bg-red-800 text-red-200',
+      rust: 'bg-orange-800 text-orange-200',
+      cpp: 'bg-purple-800 text-purple-200',
+      c: 'bg-gray-600 text-gray-200',
+    };
+
+    const colors = isDark ? darkColors : lightColors;
+    const colorClass = colors[language.toLowerCase()] || (isDark ? 'bg-gray-600 text-gray-200' : 'bg-gray-100 text-gray-800');
 
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}`}>
@@ -570,28 +763,28 @@ function SourceCard({ source, isCompact = false }: { source: Source; isCompact?:
   return (
     <div 
       onClick={handleClick}
-      className="flex-shrink-0 cursor-pointer bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-all min-w-0 w-48 md:w-56"
+      className={`flex-shrink-0 cursor-pointer ${isDarkMode ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' : 'bg-white border-gray-200 hover:bg-gray-50'} border rounded-lg p-3 hover:shadow-md transition-all min-w-0 w-48 md:w-56`}
     >
       <div className="flex items-start justify-between mb-2">
-        <h4 className="text-sm font-medium text-gray-900 truncate pr-2" title={source.title}>
+        <h4 className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} truncate pr-2`} title={source.title}>
           {source.title.length > 25 ? source.title.substring(0, 25) + '...' : source.title}
         </h4>
         {(source as any).relevanceScore && (
-          <span className="text-xs text-gray-500 flex-shrink-0">
+          <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} flex-shrink-0`}>
             {((source as any).relevanceScore * 100).toFixed(0)}%
           </span>
         )}
       </div>
       
       <div className="flex items-center justify-between">
-        {getLanguageBadge((source as any).language)}
-        <span className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+        {getLanguageBadge((source as any).language, isDarkMode)}
+        <span className={`text-xs ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} font-medium`}>
           View
         </span>
       </div>
       
       {source.description && (
-        <p className="text-xs text-gray-600 mt-2 line-clamp-2" title={source.description}>
+        <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mt-2 line-clamp-2`} title={source.description}>
           {source.description.length > 60 ? source.description.substring(0, 60) + '...' : source.description}
         </p>
       )}

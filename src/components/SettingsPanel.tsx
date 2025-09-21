@@ -1,7 +1,9 @@
 'use client';
 
-import { X, Settings } from 'lucide-react';
+import { X, Settings, LogOut, User } from 'lucide-react';
+import Image from 'next/image';
 import { AppConfig } from '@/config/app.config';
+import { useAuth } from '@/components/AuthProvider';
 
 interface SearchSettings {
   k: number;
@@ -17,6 +19,8 @@ interface SettingsPanelProps {
 }
 
 export default function SettingsPanel({ isOpen, onClose, settings, onSettingsChange }: SettingsPanelProps) {
+  const { user, logout } = useAuth();
+  
   if (!isOpen) return null;
 
   const handleSettingChange = (key: keyof SearchSettings, value: any) => {
@@ -24,6 +28,10 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
       ...settings,
       [key]: value,
     });
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -43,6 +51,43 @@ export default function SettingsPanel({ isOpen, onClose, settings, onSettingsCha
         </div>
 
         <div className="p-6 space-y-6">
+          {/* User Information */}
+          {user && (
+            <div className="border-b border-gray-200 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  {user.picture ? (
+                    <Image
+                      src={user.picture}
+                      alt={user.name}
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                      <User size={20} className="text-gray-600" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                  <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                  <p className="text-xs text-gray-400">
+                    Queries: {user.settings.queries_used}/{user.settings.query_limit}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="mt-3 w-full flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
+
           {/* Number of Results */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
